@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/tx 
+	http://www.springframework.org/schema/tx/spring-tx.xsd">
+	<!-- 配置读取properties文件的工具类 -->
+	<context:property-placeholder location="classpath:redis/redis.properties"/>
+	
+	<!-- Jedis连接池,高效连接 -->
+	<bean id="poolConfig" class="redis.clients.jedis.JedisPoolConfig">
+		<property name="maxTotal" value="${redis.pool.maxTotal}"/>
+		<property name="maxIdle" value="${redis.pool.maxIdle}"/>
+		<property name="minIdle" value="${redis.pool.minIdle}"/>
+	</bean>
+	<!-- redis集群配置 -->
+	<bean id="redisClusterConfig" class="org.springframework.data.redis.connection.RedisClusterConfiguration">
+		<constructor-arg name="clusterNodes">
+			<list>
+				<value>192.168.2.124:7001</value>
+				<value>192.168.2.124:7002</value>
+				<value>192.168.2.124:7003</value>
+				<value>192.168.2.124:7004</value>
+				<value>192.168.2.124:7005</value>
+				<value>192.168.2.124:7006</value>
+			</list>
+		</constructor-arg>
+	</bean>
+	<!-- Jedis的连接工厂，不可缺少的。是用于构建连接对象jedis的。 -->
+	<bean id="jedisConnectionFactory" 
+			class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
+		<!-- 单机版访问配置 -->
+		<property name="hostName" value="${redis.conn.hostName}"/>
+		<property name="port" value="${redis.conn.port}"/>
+		<property name="poolConfig" ref="poolConfig"/>
+		<!-- 集群版访问配置 -->
+		<!-- <constructor-arg name="clusterConfig" ref="redisClusterConfig" />
+		<constructor-arg name="poolConfig" ref="poolConfig" /> -->
+	</bean>
+	<!-- Redis模板对象，类似JDBCTemplate。模板方法模式开发的代码。RedisTemplate中定义了若干的方法，用于实现数据的CRUD操作。 -->
+	<bean id="redisTemplate" class="org.springframework.data.redis.core.RedisTemplate">
+		<property name="connectionFactory" ref="jedisConnectionFactory"/>
+		<!-- 序列化器：能够把我们储存的key与value做序列化处理的对象，是一个类似于converter的工具。
+			可以实现传入的java对象->redis可以识别的数据类型。 如：字符串。
+			默认的Serializer是StringRedisSerializer。
+			设定默认的序列化器是字符串序列化器，原因是redis可以存储的数据只有字符串和字节数组。
+			一般来说，我们代码中操作的数据对象都是java对象。
+			如果代码中，使用的数据载体就是字符串对象，那么使用Jackson2JsonRedisSerializer来做序列化器是否会有问题？
+			如果jackson插件的版本不合适，有错误隐患的话，可能将字符串数据转换为json字符串 -> {chars:[], bytes:[]}
+			使用StringRedisSerializer就没有这个问题。不处理字符串转换的。认为代码中操作的key和value都是字符串。
+		 -->
+		<!-- 配置默认的序列化器 -->
+		<!-- keySerializer、valueSerializer 配置Redis中的String类型key与value的序列化器 -->
+		<!-- HashKeySerializer、HashValueSerializer 配置Redis中的Hash类型key与value的序列化器 -->
+		<property name="keySerializer">
+			<bean class="org.springframework.data.redis.serializer.StringRedisSerializer"/>
+		</property>
+		<property name="valueSerializer">
+			<bean class="org.springframework.data.redis.serializer.StringRedisSerializer"/>
+		</property>
+	</bean>
+</beans>
